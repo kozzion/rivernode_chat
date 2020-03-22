@@ -2,6 +2,7 @@ import sys
 import os
 import random
 import time
+import copy
 
 class SystemChatServer(object):
 
@@ -48,10 +49,10 @@ class SystemChatServer(object):
         return id_conversation in self.dict_conversation
 
     def load_user(self, id_user):
-        return self.dict_user[id_user]
+        return copy.deepcopy(self.dict_user[id_user])
 
     def load_conversation(self, id_conversation):
-        return self.dict_user[id_conversation]
+        return copy.deepcopy(self.dict_conversation[id_conversation])
 
     def load_list_id_user(self):
         return list(self.dict_user.keys())

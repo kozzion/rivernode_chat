@@ -36,6 +36,8 @@ class SystemChatBotList(SystemBaseThreadedSingle):
             # print(conversation)
             if 0 < len(conversation['list_message']):
                 if not conversation['list_message'][-1]['id_user'] == self.id_user:
+                    print('BOT sending new message')
+                    sys.stdout.flush()
                     message = {}
                     message['id_user'] = self.id_user
                     message['id_conversation'] = conversation['id_conversation']
