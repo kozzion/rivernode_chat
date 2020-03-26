@@ -10,7 +10,12 @@ class SystemChatServer(object):
         super(SystemChatServer, self).__init__()
         self.dict_conversation = {}
         self.dict_user = {}
-        
+        self.id_message_last = -1
+
+    def create_id_message(self):
+        self.id_message_last += 1
+        return self.id_message_last
+
     def create_id_user(self):
         return str(random.randint(100000000,999999999))
 
@@ -61,7 +66,22 @@ class SystemChatServer(object):
         return list(self.dict_conversation.keys())
 
     def load_list_conversation_for_id_user(self, id_user):
-        return [self.dict_conversation[id_conversation] for id_conversation in self.dict_user[id_user]['list_id_conversation']]
+        return [copy.deepcopy(self.dict_conversation[id_conversation]) for id_conversation in self.dict_user[id_user]['list_id_conversation']]
+
+    def load_list_conversation_delta_for_id_user(self, id_user, id_message_last):
+        list_conversation = [self.dict_conversation[id_conversation] for id_conversation in self.dict_user[id_user]['list_id_conversation']]
+        list_conversation_delta = []
+        for conversation in list_conversation:
+            if id_message_last < conversation['list_message'][-1]['id_message']:
+                conversation_delta = {}
+                conversation_delta['id_conversation'] = conversation['id_conversation']
+                conversation_delta['list_id_user'] = copy.deepcopy(conversation['list_id_user'])
+                conversation_delta['list_message'] = []
+                for message in conversation['list_message']:
+                    if id_message_last < message['id_message']:
+                        conversation_delta['list_message'].append(message)
+                list_conversation_delta.append(conversation_delta)
+        return list_conversation_delta
 
     def save_list_message(self, list_message):
         for message in list_message:
@@ -73,6 +93,7 @@ class SystemChatServer(object):
         conversation = self.dict_conversation[message['id_conversation']]
         if not message['id_user'] in conversation['list_id_user']:
             raise RuntimeError('User not in conversation')
+        message['id_message'] = self.create_id_message()
         conversation['list_message'].append(message)
     
     def update(self, id_user, list_message):

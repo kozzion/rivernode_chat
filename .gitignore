@@ -1,2 +1,4 @@
 *.cpython-36.pyc
 script/selenium/*
+script/debug.log
+script/session.json

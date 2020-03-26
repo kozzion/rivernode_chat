@@ -3,12 +3,15 @@ import os
 import json
 import time
 import datetime
+from bs4 import BeautifulSoup
 
 # from datetime import datetime
 
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+
+from rivernode_chat.interface.whatsapp.domlocator_whatsapp import DOMLocatorWhatsapp as dl
 
 class SystemWebcontrollerWhatsapp(object):
 
@@ -36,84 +39,235 @@ class SystemWebcontrollerWhatsapp(object):
     def is_loaded(self):
         return 0 < len(self.driver.find_elements(By.TAG_NAME, 'header' ))
 
-    def await_loaded(self):
+    
+    def load_whatsapp(self):
+        # if self.driver
+        if not self.driver.current_url == 'https://web.whatsapp.com/':
+            self.driver.get("https://web.whatsapp.com/") #TODO check and move to controller
+
+    def await_load_whatsapp(self):
         while(not self.is_loaded()):
             print('not loaded')
+            print(self.driver.current_url)
             sys.stdout.flush()
-            time.sleep(0.5)
-        print('loaded')
-        sys.stdout.flush()
-        time.sleep(0.5)
+            time.sleep(0.1)
 
 
-    def get_list_message_recent_for_id_conversation(self, id_conversation):
+
+    def get_list_message_recent_for_id_conversation(self, id_conversation, id_user_write, id_user_read):
+        # print('get_list_message_recent_for_id_conversation 0')
+        # sys.stdout.flush()
         if not self.get_id_conversation_selected() == id_conversation:
+            # print('get_list_message_recent_for_id_conversation 1')
+            # sys.stdout.flush()
             self.select_searched_conversation(id_conversation)
-        return self.get_list_message_recent()
+        # print('get_list_message_recent_for_id_conversation 2')
+        # sys.stdout.flush()
+        return self.get_list_message_recent(id_user_write, id_user_read)
 
-    def get_list_message_recent(self):
-        # hasclass copyable-text
-        list_element_message = []
-        list_element = self.driver.find_elements(By.TAG_NAME,  "div")
-        for element in list_element:
-            try:
-                if 'message-out' in element.get_attribute('class'):
-                    list_element_message.append(element)
-            except Exception:
-                pass
-            try:
-                if 'message-in' in element.get_attribute('class'):
-                    list_element_message.append(element)
-            except Exception:
-                pass
-        # print('list_element_message')
-        # print(len(list_element_message))
 
-                # list_child_element = element.find_elements_by_xpath(".//*")
-                # print(len(list_child_element))
-                # if len(list_child_element) == 1:
-                #     print(list_child_element[0].get_text())        
+# <div class="_1ZMSM" style="transform: scaleX(1) scaleY(1); opacity: 1;"><span class="P6z4j">1</span></div>
+    #
+    # message stuff
+    #
+
+    def get_list_message_recent(self, id_user_write, id_user_read):
+        # print('get_list_message_recent 0')
+        sys.stdout.flush()
+        list_element_message = dl.get_selected_list_message(self.driver)   
+        # print('get_list_message_recent 1')
+        sys.stdout.flush()  
         list_message = []
         for element_message in list_element_message:
-            try:
-                list_message.append(self.parse_element_message(element_message))
-            except Exception:
-                print('parse failed')
+            list_message.append(self.parse_element_message(element_message, id_user_write, id_user_read))
+        # print('get_list_message_recent 2')
+        sys.stdout.flush()  
         return list_message
 
-    def parse_element_message(self, element_message):
-        id_user = None
-        timestamp_message = None
-        text = None
 
-        list_element = element_message.find_elements(By.TAG_NAME,  "div")
+    def has_message_header(self, bs_obj):
+        return not bs_obj.find('div', attrs={'class' : 'copyable-text'}) == None
+
+    def has_message_download(self, bs_obj):
+        return not bs_obj.find('span', attrs={'data-icon' : 'audio-download'}) == None
+
+    def has_message_play(self, bs_obj):
+        return not bs_obj.find('span', attrs={'data-icon' : 'audio-play'}) == None
+
+    def has_message_text(self, bs_obj):
+        list_element = bs_obj.find_all('div')
         for element in list_element:
-            if 'copyable-text' in element.get_attribute('class'):
-                id_user = element.get_attribute('data-pre-plain-text').split(']')[1][1:-2]
-                str_datetime = element.get_attribute('data-pre-plain-text').split(']')[0][1:]
-                datetime_message = datetime.datetime.strptime(str_datetime, '%H:%M, %m/%d/%Y')
-                timestamp_message = int(datetime.datetime.timestamp(datetime_message))
-                break
-
-        list_element = element_message.find_elements(By.TAG_NAME,  "span")
+            list_class = element.get('class')
+            if not list_class:
+                continue
+            if not 'selectable-text' in list_class:
+                continue
+            if not 'invisible-space' in list_class:
+                continue
+            if not 'copyable-text' in list_class:
+                continue
+            return True  
+        list_element = bs_obj.find_all('span')
         for element in list_element:
-            if 'copyable-text' in element.get_attribute('class'):
-                element_child = element.find_elements_by_xpath(".//*")[0]
-                text = element_child.get_attribute("innerHTML")
-                break
-        if not id_user:
-            print('no user')
-            raise RuntimeError('no user')
-        if not text:
-            print('no text')
-            raise RuntimeError('no text')
+            list_class = element.get('class')
+            if not list_class:
+                continue
+            if not 'selectable-text' in list_class:
+                continue
+            if not 'invisible-space' in list_class:
+                continue
+            if not 'copyable-text' in list_class:
+                continue
+            return True
+        return False
 
+    def has_message_image(self, bs_obj):
+        return not bs_obj.find('img') == None
+
+    def has_message_video(self, bs_obj):
+        return not bs_obj.find('video') == None
+  
+
+    def get_message_type(self, bs_obj):
+        if self.has_message_download(bs_obj):
+            return 'message_file'
+        if self.has_message_play(bs_obj):
+            return 'message_audio'
+        if self.has_message_text(bs_obj):
+            return 'message_text'
+        if self.has_message_image(bs_obj):
+            return 'message_image'
+        if self.has_message_video(bs_obj):
+            return 'message_video'
+        return 'message_unknown'
+
+
+
+
+    def parse_message_header(self, bs_obj):
+        element_header = bs_obj.find('div', attrs={'class' : 'copyable-text'})
+        header_text = element_header.get('data-pre-plain-text')
+        id_user = header_text.split(']')[1][1:-2]
+        str_datetime = header_text.split(']')[0][1:]
+        datetime_message = datetime.datetime.strptime(str_datetime, '%H:%M, %m/%d/%Y')
+        timestamp_message = int(datetime.datetime.timestamp(datetime_message))
+        return id_user, timestamp_message
+
+    def parse_message_text(self, bs_obj):
         message = {}
-        message['id_user'] = id_user
-        message['timestamp'] = timestamp_message
-        message['text'] = text
+        message['type'] = 'message_text'
+        if self.has_message_header(bs_obj):
+            id_user, timestamp_message = self.parse_message_header(bs_obj)
+            message['id_user'] = id_user
+            message['timestamp'] = timestamp_message
+
+        element_text =  bs_obj.find('span', attrs={'class' : 'copyable-text'})
+        if not(element_text):
+            print('no text')
+            message['text'] = ''
+        else:
+            message['text'] = element_text.find('span').text
         return message
 
+    def parse_message_file(self, bs_obj): 
+        element_text =  bs_obj.find('span', attrs={'data-icon' : 'audio-download'})
+        if not element_text:
+            print('no download')
+            return None
+        message = {}
+        message['type'] = 'message_file'
+        message['id_user'] = ''
+        message['timestamp'] = ''
+        message['content'] = ''
+        return message
+
+    def parse_message_image(self, bs_obj): 
+        uri =  bs_obj.find('img').get('src')
+        print(uri)
+        content = self.get_blob_as_stringbase64(uri)
+        message = {}
+        message['type'] = 'message_image'
+        message['id_user'] = ''
+        message['timestamp'] = ''
+        message['content'] = 'content'
+        return message
+
+    def parse_message_audio(self, bs_obj):   
+        uri =  bs_obj.find('audio').get('src')
+        print(uri)
+        content = self.get_blob_as_stringbase64(uri)
+        message = {}
+        message['type'] = 'message_audio'
+        message['id_user'] = ''
+        message['timestamp'] = ''
+        message['content'] = 'content'
+        return message
+
+    def parse_message_video(self, bs_obj):   
+        uri =  bs_obj.find('video').get('src')
+        print(uri)
+        content = self.get_blob_as_stringbase64(uri)
+        message = {}
+        message['type'] = 'message_audio'
+        message['id_user'] = ''
+        message['timestamp'] = ''
+        message['content'] = 'content'
+        return message
+
+
+
+    def parse_element_message(self, element_message, id_user_write, id_user_read):
+        html = element_message.get_attribute('outerHTML')   
+        bs_obj = BeautifulSoup(html, 'html.parser')
+
+        message_type = self.get_message_type(bs_obj)
+        print(message_type)
+        # message_source = 
+        # class, 'message-out'
+    
+        if message_type == 'message_text':
+            message = self.parse_message_text(bs_obj)
+        elif message_type == 'message_file':
+            message = self.parse_message_file(bs_obj)
+        elif message_type == 'message_audio':
+            message = self.parse_message_audio(bs_obj)
+        elif message_type == 'message_image':
+            message = self.parse_message_image(bs_obj)
+        elif message_type == 'message_video':
+            message = self.parse_message_video(bs_obj)
+        else:
+            raise RuntimeError('unknown message type')
+
+        # filling in the blanks
+        if not 'id_user' in message:
+            print('add id_user')
+            if 'message-out' in bs_obj.get('class'):
+                message['id_user'] = id_user_write
+            else:
+                message['id_user'] = id_user_read
+
+        return message
+
+    def get_blob_as_stringbase64(self, uri):
+        result = self.driver.execute_async_script("""
+            var uri = arguments[0];
+            var callback = arguments[1];
+            var toBase64 = function(buffer){for(var r,n=new Uint8Array(buffer),t=n.length,a=new Uint8Array(4*Math.ceil(t/3)),i=new Uint8Array(64),o=0,c=0;64>c;++c)i[c]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".charCodeAt(c);for(c=0;t-t%3>c;c+=3,o+=4)r=n[c]<<16|n[c+1]<<8|n[c+2],a[o]=i[r>>18],a[o+1]=i[r>>12&63],a[o+2]=i[r>>6&63],a[o+3]=i[63&r];return t%3===1?(r=n[t-1],a[o]=i[r>>2],a[o+1]=i[r<<4&63],a[o+2]=61,a[o+3]=61):t%3===2&&(r=(n[t-2]<<8)+n[t-1],a[o]=i[r>>10],a[o+1]=i[r>>4&63],a[o+2]=i[r<<2&63],a[o+3]=61),new TextDecoder("ascii").decode(a)};
+            var xhr = new XMLHttpRequest();
+            xhr.responseType = 'arraybuffer';
+            xhr.onload = function(){ callback(toBase64(xhr.response)) };
+            xhr.onerror = function(){ callback(xhr.status) };
+            xhr.open('GET', uri);
+            xhr.send();
+            """, uri)
+        if type(result) == int :
+            raise Exception("Request failed with status %s" % result)
+        return result
+
+
+#
+# end message read
+# 
     def get_id_conversation_selected(self):
         list_div_main = self.driver.find_elements_by_id('main')
         if len(list_div_main) == 0:
@@ -124,8 +278,8 @@ class SystemWebcontrollerWhatsapp(object):
             if element.get_attribute('title'):
                 if element.get_attribute('title') == element.get_attribute("innerHTML"):
                     attribute = element.get_attribute('title')
-                    print('selected_conversation:')
-                    print(attribute)                
+                    # print('selected_conversation:')
+                    # print(attribute)                
                     return attribute
 
         print('title not found')
@@ -168,17 +322,16 @@ class SystemWebcontrollerWhatsapp(object):
             self.send_selected_user(text)
         
     def send_selected_user(self, text):
-
-        
         input_box = self.get_element_send_box()
-        time.sleep(1)
-        # Send message
-        # taeget is your target Name and msgToSend is you message
-        # input_box.send_keys("Hello, " + target + "."+ Keys.SHIFT + Keys.ENTER + text) # + Keys.ENTER (Uncomment it if your msg doesnt contain '\n')
+        input_box.clear()
         input_box.send_keys(text) # + Keys.ENTER (Uncomment it if your msg doesnt contain '\n')
-        # Link Preview Time, Reduce this time, if internet connection is Good
-        time.sleep(3)
+        
+        while not input_box.get_attribute('innerHTML') == text:
+            sys.stdout.flush()
+            time.sleep(0.1)
+
         input_box.send_keys(Keys.ENTER)
+        #TODO for more speedup webdriver.executeScript("document.getElementById('elementID').setAttribute('value', 'new value for element')");
 
 
     def find_elements_by_title(self, title):
