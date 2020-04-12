@@ -72,10 +72,7 @@ if not server.has_id_conversation(id_conversation_cs):
     server.create_conversation(id_conversation_cs, [id_user_cs_write, id_user_cs_read])
 
 chat_bot = SystemChatBotMeta(server, id_user_cs_read)
-print(chat_bot.command_help('x',[])['text'])
-print(chat_bot.command_nupuntnl('x', [])['text'])
-print(chat_bot.command_nupuntnl('x', ['0'])['text'])
-exit()
+
 # chat_bot = SystemChatBotList(server, id_user_cs_read)
 
 # chat_bot.start()
@@ -84,29 +81,17 @@ executable_path = 'C:\\tools\\chromedriver\\chromedriver_80_0_3987_106.exe'
 
 
 
-
-
-
-
 def session_reconnect(path_file_session):
-    
-    print('session_reconnect 0')
-    sys.stdout.flush()
-
-    with open(path_file_session, 'r') as file:
-        session = json.load(file)
-    print(session['url'])
-    print(session['session_id'])
-    sys.stdout.flush()
-
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    driver = webdriver.Remote(command_executor=session['url'], desired_capabilities={}, options=chrome_options) # this opens a new windw
-    driver.session_id = session['session_id']
-
-    print('session_reconnect 1')
-    sys.stdout.flush()
-    return driver
+    try:
+        with open(path_file_session, 'r') as file:
+            session = json.load(file)
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        driver = webdriver.Remote(command_executor=session['url'], desired_capabilities={}, options=chrome_options) # this opens a new windw
+        driver.session_id = session['session_id']
+        return driver
+    except Exception:
+        return None
 
 
 def session_create_new(path_file_session):
@@ -126,6 +111,8 @@ def session_create_new(path_file_session):
     return driver
 
 def is_alive(driver):
+    if driver == None:
+        return False
     try:
         print(driver.title)
         return True

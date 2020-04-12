@@ -4,6 +4,10 @@ import random
 import time
 import copy
 
+from rivernode_chat.struct.conversation import Conversation
+from rivernode_chat.struct.message import Message
+from rivernode_chat.struct.user import User
+
 class SystemChatServer(object):
 
     def __init__(self):
@@ -25,10 +29,7 @@ class SystemChatServer(object):
     def create_user(self, id_user):
         if id_user in self.dict_user:
             raise RuntimeError('Duplcate id_user: ' + id_user)
-        user = {}
-        user['id_user'] = id_user
-        user['list_id_conversation'] = []
-        self.dict_user[id_user] = user
+        self.dict_user[id_user] = User.create(id_user)
 
     def create_conversation(self, id_conversation, list_id_user):
         if id_conversation in self.dict_conversation:
@@ -41,11 +42,7 @@ class SystemChatServer(object):
         for id_user in list_id_user:
             self.dict_user[id_user]['list_id_conversation'].append(id_conversation)
 
-        conversation = {}
-        conversation['id_conversation'] = id_conversation 
-        conversation['list_id_user'] = list_id_user
-        conversation['list_message'] = []
-        self.dict_conversation[id_conversation] = conversation
+        self.dict_conversation[id_conversation] = Conversation.create(id_conversation, list_id_user)
 
     def has_id_user(self, id_user):
         return id_user in self.dict_user
@@ -73,13 +70,7 @@ class SystemChatServer(object):
         list_conversation_delta = []
         for conversation in list_conversation:
             if id_message_last < conversation['list_message'][-1]['id_message']:
-                conversation_delta = {}
-                conversation_delta['id_conversation'] = conversation['id_conversation']
-                conversation_delta['list_id_user'] = copy.deepcopy(conversation['list_id_user'])
-                conversation_delta['list_message'] = []
-                for message in conversation['list_message']:
-                    if id_message_last < message['id_message']:
-                        conversation_delta['list_message'].append(message)
+                conversation_delta = Conversation.load_conversation_delta(conversation, id_message_last)
                 list_conversation_delta.append(conversation_delta)
         return list_conversation_delta
 
@@ -104,35 +95,3 @@ class SystemChatServer(object):
             self.save_message(message)
 
         return [self.dict_conversation[id_conversation] for id_conversation in self.dict_user[id_user]['list_id_conversation']]
-
-
-
-
-
-    # def update_client(self, last_poll, timeout_seconds, list_message_put, id_conversation):
-    #     # print('server_update: ' + str(len(list_message_put)))
-    #     # print('server_index_last_message: ' + str(index_last_message))
-    #     # sys.stdout.flush()
-    #     conversation = self.dict_conversation[id_conversation]
-    #     for message in list_message_put:
-    #         message['timestamp'] = time.tim
-    #         conversation['list_message'].append(message)
-        
-
-    #     list_message_get = []
-    #     for message in conversation['list_message']:
-    #         if index_last_message < message['index_message']:
-    #             list_message_get.append(message)
-
-    #     if len(list_message_get) == 0:
-    #         time.sleep(timeout_seconds)
-
-    #     list_message_get = []
-    #     for message in conversation['list_message']:
-    #         if index_last_message < message['index_message']:
-    #             list_message_get.append(message)
-    #     # print('server_return: ' + str(len(list_message_get)))
-    #     # sys.stdout.flush()
-    #     return list_message_get
-
-            

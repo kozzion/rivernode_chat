@@ -84,9 +84,10 @@ class SystemChatBotMeta(SystemBaseThreadedSingle):
             message['id_user'] = self.id_user
             message['id_conversation'] = id_conversation
 
-            text = '#The following commands are availeble:\n'
-            text = '#!help for this help menu'
-            text = '#!nupuntnl for todays headlines'
+            text = ''
+            text += '#The following commands are availeble:\r'
+            text += '#!help for this help menu\r'
+            text += '#!nupuntnl for todays headlines\r'
             message['text'] = text
             return message
 
@@ -112,7 +113,7 @@ class SystemChatBotMeta(SystemBaseThreadedSingle):
             self.state[id_conversation]['nupuntnlurl'] = list_url
             text = "#nu.nl's headlines\n"
             for index, headline in enumerate(list_headline):
-                text += '# (' + str(index) + ')' + headline + '\n'
+                text += '# (' + str(index) + ')' + headline + '\r'
 
             message['text'] = text
             return message
@@ -133,8 +134,14 @@ class SystemChatBotMeta(SystemBaseThreadedSingle):
                 return message
         
     def get_item_nupuntnl(self, url_request):
+        #TODO get via selenium
         url_request = 'https://www.nu.nl/'
         response = requests.get(url_request)
         doc = BeautifulSoup(response.text, 'html.parser')
+        
+        text = ''
+        list_paragraph = doc.find_all('p')
+        for paragraph in list_paragraph:
+            text += paragraph.text + '\n'
 
-        exit()
+        return text
